@@ -17,7 +17,7 @@ const CATEGORIES: { key: ScoreCategory; label: string }[] = [
 ];
 
 export default function Header({ onSearch, activeCategory, onCategoryChange }: HeaderProps) {
-  const [query, setQuery] = useState('Indiranagar, Bengaluru');
+  const [query, setQuery] = useState('Connaught Place, New Delhi');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +44,7 @@ export default function Header({ onSearch, activeCategory, onCategoryChange }: H
           </svg>
           <input
             type="text"
-            placeholder="Search a neighborhood, city, or ZIP…"
+            placeholder="Search a neighborhood, city, or ward…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />

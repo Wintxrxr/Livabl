@@ -40,7 +40,7 @@ export default function Sidebar({ neighborhoods, selected, onSelect, activeCateg
       <div className="sidebar-content">
         {selected && (
           <div className="score-hero">
-            <div className="score-hero-location">{selected.city}, Karnataka</div>
+            <div className="score-hero-location">{selected.city}, {selected.region}</div>
             <div className="score-hero-name">{selected.name}</div>
             <div className="score-hero-big">
               <div
