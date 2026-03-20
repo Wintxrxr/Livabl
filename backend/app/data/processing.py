@@ -1,4 +1,5 @@
 import logging
+from socket import TCP_FASTOPEN_CONNECT
 from typing import Dict, List, Any, Optional
 
 try:
@@ -240,23 +241,236 @@ def validate_ward_data(ward: Ward) -> Dict[str, Any]:
         "issues": issues
     }
 
+try:
+    from schemas import Ward
+except ImportError:
+    pass
+logger = logging.getLogger(__name__)
+
+def get_all_wards(geojson_data: Dict[str, Any]) -> List[Ward]:
+    try:
+        logger.info("Getting all wards...")
+        features = parse_features(geojson_data)
+
+        if not features:
+            logger.warning("No features found in GeoJSON")
+            return []
+
+        wards = transform_features_to_wards(features)
+
+        if not wards:
+            raise ProcessingError("No valid wards found in dataset")
+        logger.info(f"✓ Retrieved {len(wards)} wards")
+        return wards
+
+    except ProcessingError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting all wards: {e}")
+        raise ProcessingError(f"Failed to get all wards: {e}") from e
+def get_ward_by_id(geojson_data: Dict[str, Any], ward_id: Any) -> Ward:
+    try:
+        logger.info(f"Getting ward by ID: {ward_id}")
+        features = parse_features(geojson_data)
+        try:
+            ward_id_to_find = int(ward_id)
+        except (ValueError, TypeError):
+            ward_id_to_find = ward_id
+
+        for feature in features:
+            feature_ward_id = feature.get("properties", {}).get("ward_id")
+            if feature_ward_id is not None:
+                try:
+                    if int(feature_ward_id) == int(ward_id_to_find):
+                        ward = extract_ward_features(feature)
+                        logger.info(f"✓ Found ward: {ward.name}")
+                        return ward
+                except (ValueError, TypeError):
+                    continue
+    except ProcessingError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting ward {ward_id}: {e}")
+        raise ProcessingError(f"Failed to get ward {ward_id}: {e}") from e
+def get_wards_by_ids(geojson_data: Dict[str, Any], ward_ids: List[str]) -> List[Ward]:
+    wards = []
+    not_found = []
+    logger.info(f"Getting {len(ward_ids)} wards by ID...")
+
+    for ward_id in ward_ids:
+        try:
+            ward = get_ward_by_id(geojson_data, ward_id)
+            wards.append(ward)
+        except ProcessingError:
+            not_found.append(ward_id)
+    if not_found:
+        logger.warning(f"Wards not found: {not_found}")
+
+    logger.info(f"Retrieved {len(wards)} out of {len(ward_ids)} requested wards")
+    return wards 
+def compare_wards(wards: List[Ward]) -> Dict[str, Any]:
+    if not wards:
+        raise ProcessingError("Cannot compare empty ward list")
+    if len(wards) < 2:
+        logger.warning("Comparing less than 2 wards - may not be meaningful")
+    logger.info(f"Comparing {len(wards)} wards...")
+    sorted_wards = sorted(
+        wards,
+        key=lambda w: w.scores.overall_score,
+        reverse=True
+    )
+    avg_score = sum(w.scores.overall_score for w in wards) / len(wards)
+
+    comparison = {
+        "wards": [w.model_dump() for w in wards],
+        "sorted_by_score": [w.model_dump() for w in sorted_wards],
+        "best_ward": sorted_wards[0].model_dump(),
+        "worst_ward": sorted_wards[-1].model_dump(),
+        "average_score": round(avg_score, 2),
+        "score_range": {
+            "max": sorted_wards[0].scores.overall_score,
+            "min": sorted_wards[-1].scores.overall_score,
+            "difference": round(
+                sorted_wards[0].scores.overall_score - sorted_wards[-1].scores.overall_score,
+                2
+            )
+        }
+    }
+
+    logger.info(
+        f"✓ Comparison complete. Best: {sorted_wards[0].name}, "
+        f"Worst: {sorted_wards[-1].name}, Avg: {avg_score:.2f}"
+    )
+    
+    return comparison
+def filter_wards_by_score( wards: List[Ward], min_score: float = 0, max_score: float = 100) -> List[Ward]:
+    min_score = max(0, min(100, min_score))
+    max_score = max(0, min(100, max_score))
+    if min_score > max_score:
+        logger.warning(f"min_score {min_score} > max_score {max_score}, swapping")
+        min_score, max_score = max_score, min_score
+
+    filtered = [
+        w for w in wards
+        if min_score <= w.scores.overall_score <= max_score
+    ]
+
+    logger.info(
+        f"Filtered {len(wards)} wards to {len(filtered)} "
+        f"in range [{min_score}, {max_score}]"
+    )
+    return filtered
+
+def sort_wards(wards: List[Ward],sort_by: str = "overall_score",reverse: bool = True) -> List[Ward]:
+        try:
+            logger.info(f"Sorting {len(wards)} wards by {sort_by}...")
+            if sort_by == "overall_score":
+                return sorted(
+                    wards,
+                    key=lambda w: w.scores.overall_score,
+                    reverse=reverse
+                )
+            elif sort_by == "name":
+                return sorted(wards, key=lambda w: w.name, reverse=reverse)
+            elif sort_by == "healthcare_access":
+                return sorted(
+                    wards,
+                    key=lambda w: w.scores.healthcare_access or 0,
+                    reverse=reverse
+                )
+            elif sort_by == "education_access":
+                return sorted(
+                    wards,
+                    key=lambda w: w.scores.education_access or 0,
+                    reverse=reverse
+                )
+            elif sort_by == "environment":
+                return sorted(
+                    wards,
+                    key=lambda w: w.scores.environment or 0,
+                    reverse=reverse
+                )
+            elif sort_by == "connectivity":
+                return sorted(
+                    wards,
+                    key=lambda w: w.scores.connectivity or 0,
+                    reverse=reverse
+                )
+            else:
+                logger.warning(f"Unknown sort field: {sort_by}, returning unsorted")
+                return wards  
+        except Exception as e:
+            logger.error(f"Error sorting wards: {e}")
+            return wards
+ 
+def get_ward_statistics(wards: List[Ward]) -> Dict[str, Any]:
+    if not wards:
+        logger.warning("No wards provided for statistics")
+        return {
+            "count": 0,
+            "average_score": 0,
+            "median_score": 0,
+            "min_score": 0,
+            "max_score": 0,
+            "std_dev": 0
+        }
+    logger.info(f"Calculating statistics for {len(wards)} wards...")
+    scores = [w.scores.overall_score for w in wards]
+    sorted_scores = sorted(scores)
+    n = len(sorted_scores)
+    if n % 2 == 1:
+        median = sorted_scores[n // 2]
+    else:
+        median = (sorted_scores[n // 2 - 1] + sorted_scores[n // 2]) / 2
+    avg = sum(scores) / len(scores)
+
+    if len(scores) > 1:
+        variance = sum((x - avg) ** 2 for x in scores) / len(scores)
+        std_dev = variance ** 0.5
+    else:
+        std_dev = 0
+    stats = {
+        "count": len(wards),
+        "average_score": round(avg, 2),
+        "median_score": round(median, 2),
+        "min_score": min(scores),
+        "max_score": max(scores),
+        "std_dev": round(std_dev, 2),
+        "total_score_sum": round(sum(scores), 2)
+    }
+
+    logger.info(
+        f"✓ Statistics: Avg={stats['average_score']}, "
+        f"Median={stats['median_score']}, StdDev={stats['std_dev']}"
+    )
+
+    return stats
+
+def get_top_wards(wards: List[Ward], n: int = 10) -> List[Ward]:
+    sorted_wards = sort_wards(wards, "overall_score", reverse=True)
+    top_n = sorted_wards[:n]
+    logger.info(f"Retrieved top {len(top_n)} wards")
+    return top_n
+
+def get_bottom_wards(wards: List[Ward], n: int = 10) -> List[Ward]:
+    sorted_wards = sort_wards(wards, "overall_score", reverse=False)
+    bottom_n = sorted_wards[:n]
+    logger.info(f"Retrieved bottom {len(bottom_n)} wards")
+    return bottom_n
+ 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    print("\n=== Testing Processing Module ===\n")
     try:
         from ingestion import load_geojson
         print("Step 1: Loading GeoJSON data...")
         data = load_geojson("wards_score.geojson")
-        print(f"Loaded {len(data['features'])} features") 
-
+        print(f"Loaded {len(data['features'])} features")
         print("\nStep 2: Parsing features...")
         features = parse_features(data)
         print(f"Parsed {len(features)} features")
-
         print("\nStep 3: Validating features...")
         validation = validate_features(features)
         print(f"Valid: {validation['valid_count']}, Invalid: {validation['invalid_count']}")
-        
         print("\nStep 4: Transforming to Ward objects...")
         wards = transform_features_to_wards(features)
         print(f"Transformed {len(wards)} wards")
@@ -271,8 +485,49 @@ if __name__ == "__main__":
             print(f"School Score: {ward.scores.education_access}/100")
             print(f"Pollution Score: {ward.scores.environment}/100")
 
-        print("\nAll Tests Passed!")
-
+        print("\nTest 1: Get all wards...")
+        all_wards = get_all_wards(data)
+        print(f"Got {len(all_wards)} wards")
+        print("\nTest 2: Get single ward by ID...")
+        single_ward = get_ward_by_id(data, "1")
+        print(f"Got ward: {single_ward.name} (Score: {single_ward.scores.overall_score}/100)")
+        print("\nTest 3: Get multiple wards by IDs...")
+        multiple_wards = get_wards_by_ids(data, ["1", "2", "3"])
+        print(f"Got {len(multiple_wards)} wards")
+        print("\nTest 4: Compare wards...")
+        comparison = compare_wards(multiple_wards)
+        print(f"Best ward: {comparison['best_ward']['name']} ({comparison['best_ward']['scores']['overall_score']}/100)")
+        print(f"Worst ward: {comparison['worst_ward']['name']} ({comparison['worst_ward']['scores']['overall_score']}/100)")
+        print(f"Average score: {comparison['average_score']}/100")
+        print(f"Score range: {comparison['score_range']['min']} - {comparison['score_range']['max']}")
+        print("\nTest 5: Filter wards by score (min=70)...")
+        filtered = filter_wards_by_score(all_wards, min_score=70)
+        print(f"{len(filtered)} wards with score >= 70")
+        print("\nTest 6: Sort wards by score (descending)...")
+        sorted_wards = sort_wards(all_wards, "overall_score", reverse=True)
+        print(f"Top 3 wards:")
+        for i, w in enumerate(sorted_wards[:3], 1):
+            print(f"  {i}. {w.name}: {w.scores.overall_score}/100")
+        print("\nTest 7: Get ward statistics...")
+        stats = get_ward_statistics(all_wards)
+        print(f"Total wards: {stats['count']}")
+        print(f"Average score: {stats['average_score']}/100")
+        print(f"Median score: {stats['median_score']}/100")
+        print(f"Min score: {stats['min_score']}/100")
+        print(f"Max score: {stats['max_score']}/100")
+        print(f"Std Dev: {stats['std_dev']}")
+        print("\nTest 8: Get top 5 wards...")
+        top_5 = get_top_wards(all_wards, 5)
+        print(f"Top 5 wards:")
+        for i, w in enumerate(top_5, 1):
+            print(f"  {i}. {w.name}: {w.scores.overall_score}/100")
+        print("\nTest 9: Get bottom 5 wards...")
+        bottom_5 = get_bottom_wards(all_wards, 5)
+        print(f"Bottom 5 wards:")
+        for i, w in enumerate(bottom_5, 1):
+            print(f"  {i}. {w.name}: {w.scores.overall_score}/100")
+        print("ALL TESTS PASSED!")
+        
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
