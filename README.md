@@ -1,132 +1,185 @@
+<div align="center">
+
+# Livabl
+
 **A Data-Driven Quality of Life Index for Smarter Home Decisions**
 
-Livebl is an open-source platform that aggregates public urban datasets to generate a **0–100 Quality of Life score** for every ward. It helps renters, homebuyers, researchers, and planners make informed decisions through comparable locality insights and an interactive map.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Built with OSM](https://img.shields.io/badge/Maps-OpenStreetMap-blue)](https://www.openstreetmap.org)
+[![React](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB)](https://react.dev)
+[![Python](https://img.shields.io/badge/Backend-Python%20%2B%20FastAPI-3776AB)](https://fastapi.tiangolo.com)
+[![FossHack 2025](https://img.shields.io/badge/FossHack-2025-orange)](https://fossunited.org)
 
+Livabl is an open-source platform that aggregates public urban datasets to generate a **0–100 Quality of Life score** for every ward in Delhi NCR. It helps renters, homebuyers, researchers, and urban planners make informed decisions through comparable locality insights and an interactive map.
 
-##  																										Problem
+</div>
+
+---
+
+## The Problem
 
 Housing decisions are often made with incomplete or biased information.
 
-* Property listings emphasize positives
-* Short visits don’t reveal long-term livability
-* Public data on air quality, infrastructure, and civic issues is fragmented
+- Property listings only emphasize positives
+- Short visits don't reveal long-term livability issues
+- Public data on air quality, infrastructure, and civic issues is scattered across multiple portals with no unified view
 
-As a result, people rely on price, intuition, and word-of-mouth rather than measurable quality-of-life indicators.
+As a result, people rely on price, intuition, and word-of-mouth rather than measurable quality-of-life indicators. **Delhi NCR alone has 11 million+ residents making housing decisions without reliable livability data.**
 
 ---
 
-##                                                      Solution
+## The Solution
 
-Livebl unifies multiple public datasets into a **standardized locality score (0–100)**.
+Livabl unifies multiple public datasets into a **standardized locality score (0–100)** and visualizes it on an interactive OpenStreetMap-powered dashboard.
 
 The platform transforms complex urban data into simple, actionable insights through:
 
-* Comparable locality scores
-* Interactive ward-level maps
-* Metric breakdowns
-* Side-by-side locality comparisons
+- Interactive ward-level map with color-coded livability zones
+- Per-ward score breakdown across 6 key metrics
+- Ranked neighborhood list with real-time filtering
+- Side-by-side locality comparison *(coming soon)*
 
 ---
 
-##                                                      User Flow
+## Live Demo
 
-1. Open the interactive city map
-2. Select a ward/locality
-3. View its Quality Score and metric breakdown
-4. Compare with other wards
-5. Use insights to make a housing decision
+> Dashboard running locally — see Getting Started below.
+
+![Livabl Dashboard](docs/screenshot.png)
 
 ---
 
-##  																							Quality Score Metrics (MVP)
+## Quality Score Metrics
 
-Livebl computes scores using six key pillars:
+Livabl computes a **0–100 livability score** using six weighted pillars:
 
-* **Healthcare Access** — Hospitals within a 3 km radius
-* **Education Access** — Schools within a 3 km radius
-* **Connectivity** — Metro accessibility index
-* **Environment** — Average AQI levels
-* **Civic Responsiveness** — Active complaint data
-* **Community Sentiment** — User-submitted ratings
+| Metric | Description | Data Source |
+|--------|-------------|-------------|
+| 🏥 Healthcare Access | Hospitals within a 3 km radius | OpenStreetMap |
+| 🏫 Education Access | Schools within a 3 km radius | OpenStreetMap |
+| 🚇 Connectivity | Metro accessibility index | Public transit data |
+| 🌿 Environment | Average AQI levels | Open AQI datasets |
+| 🏛️ Civic Responsiveness | Active complaint data | Municipal records |
+| 💬 Community Sentiment | User-submitted ratings | Platform data |
 
----
-
-##  																										Tech Stack
-
-**Data & Mapping**
-
-* OpenStreetMap (ward boundaries and base maps)
-* Open environmental datasets (AQI)
-
-**Backend**
-
-* Python (data ingestion, processing, scoring engine)
-
-**Frontend**
-
-* React / JavaScript dashboard
-
-**Architecture**
-
-* Fully open-source and modular
+Each metric is normalized to a common 0–100 scale before weighted aggregation into a final Quality Score.
 
 ---
 
-##  																				 How the Scoring Works (High Level)
+## How the Scoring Works
 
-1. Collect raw datasets from public sources
-2. Normalize metrics to a common scale
-3. Apply weighted aggregation
-4. Generate a final Quality Score per ward
-5. Serve results via API to the frontend map
+```
+Raw public datasets
+        ↓
+Data ingestion & cleaning (Python)
+        ↓
+Normalize metrics → 0-100 scale
+        ↓
+Weighted aggregation per ward
+        ↓
+Quality Score generated for all 290 Delhi wards
+        ↓
+Served via FastAPI → React dashboard
+```
 
 ---
 
+## Tech Stack
 
-##  																								Getting Started
+### Frontend
+- **React + TypeScript** — component-based UI
+- **Vite** — fast dev server and build tool
+- **Leaflet.js** — interactive map rendering
+- **OpenStreetMap** — free, open-source map tiles and ward boundary data
+
+### Backend
+- **Python + FastAPI** — REST API and data processing
+- **GeoJSON** — ward boundary and score data format
+- **uv** — fast Python package manager
+
+### Data & Mapping
+- **OpenStreetMap** — ward boundaries via Overpass API
+- **290 Delhi NCR wards** with real livability scores
+- Open environmental datasets (AQI, hospitals, schools)
+
+---
+
+## Project Structure
+
+```
+Livabl/
+├── frontend/                  # React + TypeScript dashboard
+│   ├── src/
+│   │   ├── api/               # Backend API layer
+│   │   │   ├── wards.ts       # Real ward data loading
+│   │   │   └── overpass.ts    # OSM boundary parser
+│   │   ├── components/        # UI components
+│   │   │   ├── Header.tsx     # Search + filter bar
+│   │   │   ├── LiveMap.tsx    # Leaflet OSM map
+│   │   │   ├── Sidebar.tsx    # Score cards + ward list
+│   │   │   └── ScoreBar.tsx   # Animated score bars
+│   │   ├── types/             # TypeScript definitions
+│   │   └── utils.ts           # Score color helpers
+│   └── public/
+│       └── data/
+│           └── wards_score.geojson   # 290 Delhi ward scores
+│
+├── backend/                   # Python scoring pipeline
+│   ├── app/
+│   │   ├── api/routes.py      # FastAPI endpoints
+│   │   ├── data/
+│   │   │   ├── ingestion.py   # GeoJSON loader
+│   │   │   ├── processing.py  # Ward data transformer
+│   │   │   └── schemas.py     # Pydantic data models
+│   │   └── scoring/           # Score computation engine
+│   └── data/
+│       ├── raw/               # Source GeoJSON files
+│       └── processed/         # Scored ward data
+│
+└── docs/                      # Architecture and methodology
+```
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-* Python 3.10+
-* Node.js 18+
-* npm or pnpm
-* **uv** (Python package manager)
-				
-Install uv if you don’t have it:
+- Python 3.10+
+- Node.js 18+
+- npm
+- **uv** (Python package manager)
 
 ```bash
 pip install uv
 ```
 
----
-
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/WalkingDead1407/LivaBl.git
-
-cd LivaBl
+git clone https://github.com/WalkingDead1407/Livabl.git
+cd Livabl
 ```
 
-#### Backend (uv workflow)
+#### Backend
 
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 uv venv
-
-# Activate environment
 source .venv/bin/activate   # Linux / macOS
 # .venv\Scripts\activate    # Windows
 
 # Install dependencies
 uv pip install -r requirements.txt
 
-# Run server
+# Run the API server
 python app.py
 ```
+
+The API will be available at `http://localhost:8000`.
 
 #### Frontend
 
@@ -136,28 +189,60 @@ npm install
 npm run dev
 ```
 
----
+Open `http://localhost:5173` in your browser.
 
-## Future Enhancements
+#### Connecting Frontend to Backend
 
-* Crime and safety indices
-* Rental price trends
-* Walkability and green cover metrics
-* Time-series score evolution
-* Additional city support
+Create a `.env` file inside the `frontend/` folder:
+
+```
+VITE_API_URL=http://localhost:8000
+```
+
+The frontend will automatically switch from local GeoJSON to the live API.
 
 ---
 
 ## Contributing
 
-Contributions are welcome!
+Contributions are welcome! This project is built for FossHack 2025.
 
 1. Fork the repo
-2. Create a feature branch
-3. Commit your changes
-4. Open a pull request
+2. Create a feature branch (`git checkout -b feat/your-feature`)
+3. Commit your changes (`git commit -m "feat: add your feature"`)
+4. Push and open a pull request
+
+Please open an issue before starting work on a large feature so we can coordinate.
 
 ---
 
+## Roadmap
 
-**Livebl — Turning urban data into clear decisions.**
+- [x] Interactive OSM map with Leaflet.js
+- [x] 290 Delhi ward boundaries from OpenStreetMap
+- [x] Real livability scores from backend pipeline
+- [x] Ward search across all 290 wards
+- [ ] Filter map by score category (Healthcare, Education, Environment)
+- [ ] Side-by-side ward comparison view
+- [ ] Connect to live FastAPI backend
+- [ ] Crime and safety indices
+- [ ] Rental price trend overlay
+- [ ] Walkability and green cover metrics
+- [ ] Time-series score evolution
+- [ ] Support for additional Indian cities
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Livabl — Turning urban data into clear decisions.**
+
+Built with ❤️ for [FossHack 2025](https://fossunited.org) · Powered by [OpenStreetMap](https://www.openstreetmap.org)
+
+</div>
