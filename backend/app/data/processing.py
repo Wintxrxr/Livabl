@@ -6,10 +6,46 @@ try:
     from schemas import WardScore, Ward
 except ImportError:
     print("Warning: schemas.py not found in same directory")
+
+# api import
+try:
+    from realtime_aqi import WAQIClient
+    from aqi_cache import AQICache
+    from aqi_config import AQIConfig
+    aqi_client = WAQIClient()
+    aqi_cache = AQICache()
+except ImportError:
+    aqi_client = None
+    aqi_cache = None
+
 logger = logging.getLogger(__name__)
 class ProcessingError(Exception):
-    """Custom exception for processing errors"""
     pass
+
+
+def get_realtime_pollution_score(lat: float, lon: float) -> Optional[float]:
+    if not aqi_client:
+        return None
+
+    try:
+        cache_key = f"{lat}_{lon}"
+        cached = aqi_cache.get(cache_key)
+        if cached is not None:
+            logger.debug(f"Cache hit for {lat},{lon}: {cached}")
+            return cached
+
+        aqi = aqi_client.get_aqi_by_coordinates(lat, lon)
+
+        if aqi is not None:
+            aqi_cache.set(cache_key, aqi)
+            logger.info(f"Real-time AQI for {lat},{lon}: {aqi:.1f}/100")
+            return aqi
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error getting real-time AQI: {e}")
+        return None
 
 def parse_features(geojson_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     try:
@@ -26,7 +62,7 @@ def parse_features(geojson_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             logger.warning("GeoJSON has empty features array")
         logger.info(f"✓ Parsed {len(features)} features from GeoJSON")
         return features
-        
+ 
     except ProcessingError:
         raise
     except Exception as e:
@@ -59,7 +95,7 @@ def validate_features(features: List[Dict[str, Any]]) -> Dict[str, Any]:
                 errors.append(f"Feature {i}: Missing 'geometry'")
                 invalid_count += 1
                 continue
-            valid_count += 1 
+            valid_count += 1
         except Exception as e:
             errors.append(f"Feature {i}: {str(e)}")
             invalid_count += 1
@@ -105,7 +141,7 @@ def get_feature_stats(features: List[Dict[str, Any]]) -> Dict[str, Any]:
     for feature in features:
         props = feature.get("properties", {})
         total_properties += len(props)
-        
+ 
         geometry = feature.get("geometry", {})
         geom_type = geometry.get("type", "unknown")
         geometry_types[geom_type] = geometry_types.get(geom_type, 0) + 1
@@ -127,7 +163,7 @@ def parse_features_safe(geojson_data: Dict[str, Any], allow_empty: bool = True) 
 
         if not valid_features and features:
             logger.warning("All features were invalid after filtering")
-        logger.info(f"✓ Safe parse complete: {len(valid_features)} valid features")
+        logger.info(f"Safe parse complete: {len(valid_features)} valid features")
         return valid_features
 
     except ProcessingError:
@@ -153,20 +189,36 @@ def normalize_score(value: Any) -> Optional[float]:
         logger.warning(f"Cannot convert '{value}' to float, returning None")
         return None
 
-def extract_metric_breakdown(properties: Dict[str, Any]) -> WardScore:
+def extract_metric_breakdown(properties: Dict[str, Any], geometry: Dict[str, Any] = None) -> WardScore:
     overall_score = normalize_score(properties.get("livability_score"))
     if overall_score is None:
-        raise ProcessingError(
-            "Feature missing required 'livability_score' field"
-        )
+        raise ProcessingError("Feature missing required 'livability_score' field")
+    environment_score = None
+    if geometry:
+        try:
+            coords = geometry.get("coordinates", [])
+            if coords and geometry.get("type") == "Polygon":
+                #centroid of polygon (average of coordinates)
+                polygon_coords = coords[0]
+                lats = [c[1] for c in polygon_coords]
+                lons = [c[0] for c in polygon_coords]
+                lat = sum(lats) / len(lats)
+                lon = sum(lons) / len(lons)
+                realtime_aqi = get_realtime_pollution_score(lat, lon)
+                if realtime_aqi is not None:
+                    environment_score = realtime_aqi
+        except Exception as e:
+            logger.debug(f"Could not extract coordinates for real-time AQI: {e}")
+ 
+    # fallback to static pollution_score if real-time unavailable
+    if environment_score is None:
+        environment_score = normalize_score(properties.get("pollution_score"))
+
     return WardScore(
         overall_score=overall_score,
         healthcare_access=normalize_score(properties.get("hospital_score")),
         education_access=normalize_score(properties.get("school_score")),
-        environment=normalize_score(properties.get("pollution_score")),  # Lower is better
-        connectivity=None,  # Not available in your data
-        civic_responsiveness=None,  # Not available
-        community_sentiment=None  # Not available
+        environment=environment_score,  # Real-time or static
     )
 
 def extract_ward_features(feature: Dict[str, Any]) -> Ward:
@@ -184,7 +236,7 @@ def extract_ward_features(feature: Dict[str, Any]) -> Ward:
             raise ProcessingError(f"Feature {ward_id} missing 'geometry'")
 
         logger.debug(f"Extracting metrics for ward: {ward_id} - {name}")
-        scores = extract_metric_breakdown(properties)
+        scores = extract_metric_breakdown(properties, geometry)  #geometry for real-time AQI
 
         ward = Ward(
             id=str(ward_id),
@@ -193,7 +245,7 @@ def extract_ward_features(feature: Dict[str, Any]) -> Ward:
             geometry=geometry
         )
 
-        logger.debug(f"✓ Extracted ward: {ward_id} - {name} (Score: {scores.overall_score})")
+        logger.debug(f"Extracted ward: {ward_id} - {name} (Score: {scores.overall_score})")
         return ward
 
     except ProcessingError:
@@ -216,9 +268,9 @@ def transform_features_to_wards(features: List[Dict[str, Any]]) -> List[Ward]:
             if skipped <= 3:
                 logger.warning(f"Skipped feature {i}: {e}")
     if skipped > 0:
-        logger.info(f"✓ Transformed {len(wards)} features ({skipped} skipped)")
+        logger.info(f"Transformed {len(wards)} features ({skipped} skipped)")
     else:
-        logger.info(f"✓ Transformed {len(wards)} features (all valid)")
+        logger.info(f"Transformed {len(wards)} features (all valid)")
     return wards
 
 def validate_ward_data(ward: Ward) -> Dict[str, Any]:
@@ -257,10 +309,9 @@ def get_all_wards(geojson_data: Dict[str, Any]) -> List[Ward]:
             return []
 
         wards = transform_features_to_wards(features)
-
         if not wards:
             raise ProcessingError("No valid wards found in dataset")
-        logger.info(f"✓ Retrieved {len(wards)} wards")
+        logger.info(f"Retrieved {len(wards)} wards")
         return wards
 
     except ProcessingError:
@@ -283,7 +334,7 @@ def get_ward_by_id(geojson_data: Dict[str, Any], ward_id: Any) -> Ward:
                 try:
                     if int(feature_ward_id) == int(ward_id_to_find):
                         ward = extract_ward_features(feature)
-                        logger.info(f"✓ Found ward: {ward.name}")
+                        logger.info(f"Found ward: {ward.name}")
                         return ward
                 except (ValueError, TypeError):
                     continue
@@ -337,11 +388,7 @@ def compare_wards(wards: List[Ward]) -> Dict[str, Any]:
         }
     }
 
-    logger.info(
-        f"✓ Comparison complete. Best: {sorted_wards[0].name}, "
-        f"Worst: {sorted_wards[-1].name}, Avg: {avg_score:.2f}"
-    )
-    
+    logger.info(f"Comparison complete. Best: {sorted_wards[0].name}, "f"Worst: {sorted_wards[-1].name}, Avg: {avg_score:.2f}") 
     return comparison
 def filter_wards_by_score( wards: List[Ward], min_score: float = 0, max_score: float = 100) -> List[Ward]:
     min_score = max(0, min(100, min_score))
@@ -398,7 +445,7 @@ def sort_wards(wards: List[Ward],sort_by: str = "overall_score",reverse: bool = 
                 )
             else:
                 logger.warning(f"Unknown sort field: {sort_by}, returning unsorted")
-                return wards  
+                return wards
         except Exception as e:
             logger.error(f"Error sorting wards: {e}")
             return wards
@@ -440,7 +487,7 @@ def get_ward_statistics(wards: List[Ward]) -> Dict[str, Any]:
     }
 
     logger.info(
-        f"✓ Statistics: Avg={stats['average_score']}, "
+        f"Statistics: Avg={stats['average_score']}, "
         f"Median={stats['median_score']}, StdDev={stats['std_dev']}"
     )
 
