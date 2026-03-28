@@ -22,6 +22,38 @@
   --header-h: 56px;
   --font: 'DM Sans', system-ui, sans-serif;
   --mono: 'DM Mono', monospace;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #111315;
+  --surface: #171b1f;
+  --surface2: #1e2429;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --text: #f3f4ef;
+  --text-2: #b5b8b0;
+  --text-3: #7f867f;
+  --accent: #7cc7ff;
+  --accent-light: rgba(124, 199, 255, 0.12);
+  --green: #32c26a;
+  --green-bg: rgba(50, 194, 106, 0.14);
+  --amber: #f2aa3c;
+  --amber-bg: rgba(242, 170, 60, 0.14);
+  --red: #ff6b5f;
+  --red-bg: rgba(255, 107, 95, 0.14);
+  --active-pill-bg: #f3f4ef;
+  --active-pill-text: #171b1f;
+  --logo-mark-bg: linear-gradient(135deg, #7cc7ff 0%, #4ea7f3 100%);
+  --logo-mark-dot: #0f1720;
+  color-scheme: dark;
+}
+
+:root:not([data-theme='dark']) {
+  --active-pill-bg: var(--text);
+  --active-pill-text: #ffffff;
+  --logo-mark-bg: var(--text);
+  --logo-mark-dot: #1a1a18;
 }
 
 /* ─── Reset ─────────────────────────────────────────────────────────────────── */
@@ -40,6 +72,10 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────────────────── */
@@ -67,11 +103,12 @@ body {
 
 .logo-mark {
   width: 30px; height: 30px;
-  background: var(--text);
+  background: var(--logo-mark-bg);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .logo-name {
@@ -132,6 +169,14 @@ body {
   padding: 0 20px;
 }
 
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 10px;
+}
+
 .avatar {
   width: 28px; height: 28px;
   border-radius: 50%;
@@ -170,9 +215,23 @@ body {
 }
 
 .pill-btn.active {
-  background: var(--text);
-  color: white;
-  border-color: var(--text);
+  background: var(--active-pill-bg);
+  color: var(--active-pill-text);
+  border-color: var(--active-pill-bg);
+}
+
+:root[data-theme='dark'] .pill-btn:hover {
+  background: #232a30;
+}
+
+:root[data-theme='dark'] .pill-btn.active:hover {
+  background: var(--active-pill-bg);
+  border-color: var(--active-pill-bg);
+  color: var(--active-pill-text);
+}
+
+:root[data-theme='dark'] .search-box:hover {
+  background: #232a30;
 }
 
 /* ─── App Layout ─────────────────────────────────────────────────────────────── */
@@ -224,8 +283,10 @@ body {
 
 /* ─── Score Hero Card ────────────────────────────────────────────────────────── */
 .score-hero {
-  background: var(--text);
-  color: white;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 12px;
@@ -240,7 +301,7 @@ body {
 .score-hero-location {
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-3);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -249,7 +310,7 @@ body {
 .score-hero-name {
   font-size: 18px;
   font-weight: 600;
-  color: white;
+  color: var(--text);
   margin-bottom: 14px;
 }
 
@@ -269,7 +330,7 @@ body {
 
 .score-label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-2);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -289,7 +350,7 @@ body {
 
 .bar-name {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-2);
   width: 80px;
   flex-shrink: 0;
 }
@@ -297,7 +358,7 @@ body {
 .bar-track {
   flex: 1;
   height: 4px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--border);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -310,7 +371,7 @@ body {
 .bar-val {
   font-size: 11px;
   font-family: var(--mono);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-2);
   width: 26px;
   text-align: right;
 }
@@ -340,6 +401,14 @@ body {
 
 .hood-card:hover { border-color: var(--border-strong); background: var(--surface2); }
 .hood-card.selected { border-color: var(--accent); background: var(--accent-light); }
+
+:root[data-theme='dark'] .hood-card:hover {
+  background: #232a30;
+}
+
+:root[data-theme='dark'] .hood-card.selected:hover {
+  background: rgba(124, 199, 255, 0.18);
+}
 
 .hood-rank {
   font-size: 11px;
@@ -377,6 +446,43 @@ body {
   flex: 1;
   position: relative;
   overflow: hidden;
+}
+
+.map-area .leaflet-container {
+  background: var(--surface2);
+}
+
+.map-area .leaflet-popup-content-wrapper,
+.map-area .leaflet-popup-tip,
+.map-area .leaflet-tooltip {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.map-area .leaflet-control-zoom a {
+  background: var(--surface);
+  color: var(--text);
+  border-bottom-color: var(--border);
+}
+
+.map-area .leaflet-control-zoom a:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+:root[data-theme='dark'] .map-area .leaflet-control-zoom {
+  border-color: var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme='dark'] .map-area .leaflet-control-zoom a {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .map-area .leaflet-control-zoom a:hover {
+  background: #232a30;
 }
 
 .map-bg {
