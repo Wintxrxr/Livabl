@@ -17,7 +17,7 @@ def list_wards():
             "id": w["id"],
             "name": w["name"],
             "city": w["city"],
-            "score": round(compute_score(w)["score"], 2) # Assuming compute_score returns a dict with 'score' key
+            "score": w["score"]
         }
         for w in data
     ]
@@ -30,13 +30,11 @@ def get_ward(ward_id: int):
 
     if not w:
         raise HTTPException(status_code=404, detail="Ward not found")
-
     score_result = compute_score(w)
-
     return {
         "id": w["id"],
         "name": w["name"],
         "city": w["city"],
-        "score": round(score_result["score"], 2),  # Assuming compute_score returns a dict with 'score' key
-        "metrics": score_result
+        "score": score_result["score"],
+        "metrics": score_result["metrics"]
     }

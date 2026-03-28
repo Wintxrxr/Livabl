@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parents[1] #goes to /backend/app/
 
 ROOT_DIR = BASE_DIR.parent #goes to /backend/ 
 
-DATA_PATH = BASE_DIR / "data" / "processed" / "wards_with_aqi.geojson"
+DATA_PATH = BASE_DIR / "data" / "processed" / "wards_score.geojson"
 
 def load_data():
     with open(DATA_PATH, "r", encoding="utf-8") as f:
@@ -14,13 +14,12 @@ def load_data():
 
 def get_all_wards():
     features = load_data()
-    # Assuming 'wards' is a list of ward data; if not, replace with features = load_data() and enumerate(features)
     return [
         {
             "id": i,
             "name": w["properties"].get("ward_name", f"Ward {i}"),
             "city": "Delhi",
-            **w["properties"]  # Unpack additional properties
+            **w["properties"] 
         }
         for i, w in enumerate(features)
     ]
