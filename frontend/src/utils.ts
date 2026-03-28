@@ -21,9 +21,9 @@ export function getZoneFill(score: number, opacity = 0.15): string {
 }
 
 export function getBadgeStyle(score: number): { background: string; color: string } {
-  if (score >= 75) return { background: '#f0fdf4', color: '#16a34a' };
-  if (score >= 55) return { background: '#fffbeb', color: '#d97706' };
-  return { background: '#fef2f2', color: '#dc2626' };
+  if (score >= 75) return { background: 'var(--green-bg)', color: 'var(--green)' };
+  if (score >= 55) return { background: 'var(--amber-bg)', color: 'var(--amber)' };
+  return { background: 'var(--red-bg)', color: 'var(--red)' };
 }
 
 export function getBarColor(value: number): string {
