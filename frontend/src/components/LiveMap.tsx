@@ -44,54 +44,66 @@ export default function LiveMap({ neighborhoods, selected, onSelect }: LiveMapPr
   // Draw real Delhi ward boundaries
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || wardsLoaded || !map.getPane('overlayPane')) return;
+    if (!map || wardsLoaded) return;
 
-    fetchNeighbourhoodBoundaries().then((wards: OsmPolygon[]) => {
-      polygonsRef.current.forEach((p) => p.remove());
-      polygonsRef.current = [];
+    let cancelled = false;
 
-      wards.forEach((ward) => {
-        const color = getWardColor(ward.score);
-        ward.coordinates.forEach((ring) => {
-          if (ring.length < 3) return;
-          const polygon = L.polygon(ring, {
-            color,
-            fillColor: color,
-            fillOpacity: 0.12,
-            weight: 0.8,
-            opacity: 0.5,
+    fetchNeighbourhoodBoundaries()
+      .then((wards: OsmPolygon[]) => {
+        if (cancelled) return;
+
+        polygonsRef.current.forEach((p) => p.remove());
+        polygonsRef.current = [];
+
+        wards.forEach((ward) => {
+          const color = getWardColor(ward.score);
+          ward.coordinates.forEach((ring) => {
+            if (ring.length < 3) return;
+            const polygon = L.polygon(ring, {
+              color,
+              fillColor: color,
+              fillOpacity: 0.12,
+              weight: 0.8,
+              opacity: 0.5,
+            });
+
+            polygon.bindTooltip(
+              `<div style="font-family:'DM Sans',sans-serif;font-size:12px;min-width:140px;">
+                <div style="font-weight:600;margin-bottom:4px;">${ward.name}</div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                  <span style="color:#6b6b64;">Livability</span>
+                  <span style="font-family:'DM Mono',monospace;color:${color};">${ward.score}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                  <span style="color:#6b6b64;">Healthcare</span>
+                  <span style="font-family:'DM Mono',monospace;">${ward.hospital_score}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                  <span style="color:#6b6b64;">Education</span>
+                  <span style="font-family:'DM Mono',monospace;">${ward.school_score}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:#6b6b64;">Pollution</span>
+                  <span style="font-family:'DM Mono',monospace;">${ward.pollution_score}</span>
+                </div>
+              </div>`,
+              { sticky: true, opacity: 0.97 }
+            );
+
+            polygon.addTo(map);
+            polygonsRef.current.push(polygon);
           });
-
-          polygon.bindTooltip(
-            `<div style="font-family:'DM Sans',sans-serif;font-size:12px;min-width:140px;">
-              <div style="font-weight:600;margin-bottom:4px;">${ward.name}</div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                <span style="color:#6b6b64;">Livability</span>
-                <span style="font-family:'DM Mono',monospace;color:${color};">${ward.score}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                <span style="color:#6b6b64;">Healthcare</span>
-                <span style="font-family:'DM Mono',monospace;">${ward.hospital_score}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                <span style="color:#6b6b64;">Education</span>
-                <span style="font-family:'DM Mono',monospace;">${ward.school_score}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;">
-                <span style="color:#6b6b64;">Pollution</span>
-                <span style="font-family:'DM Mono',monospace;">${ward.pollution_score}</span>
-              </div>
-            </div>`,
-            { sticky: true, opacity: 0.97 }
-          );
-
-          polygon.addTo(map);
-          polygonsRef.current.push(polygon);
         });
+
+        setWardsLoaded(true);
+      })
+      .catch((err) => {
+        console.warn("[Wards] Failed to draw ward boundaries:", err);
       });
 
-      setWardsLoaded(true);
-    });
+    return () => {
+      cancelled = true;
+    };
   }, [wardsLoaded]);
 
   // Add score pins for our key neighborhoods

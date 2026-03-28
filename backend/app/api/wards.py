@@ -17,14 +17,13 @@ def list_wards():
             "id": w["id"],
             "name": w["name"],
             "city": w["city"],
-            "score": w["score"]
+            "score": w["score"],
         }
         for w in data
     ]
 
 
-@router.get("/wards/{ward_id}", 
-response_model=WardDetailResponse)
+@router.get("/wards/{ward_id}", response_model=WardDetailResponse)
 def get_ward(ward_id: int):
     w = get_ward_by_id(ward_id)
 
@@ -36,5 +35,5 @@ def get_ward(ward_id: int):
         "name": w["name"],
         "city": w["city"],
         "score": score_result["score"],
-        "metrics": score_result["metrics"]
+        "metrics": score_result["metrics"],
     }
