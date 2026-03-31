@@ -297,6 +297,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 0 20px;
+  position: relative;
 }
 
 .theme-toggle {
@@ -318,6 +319,76 @@ body {
   font-weight: 600;
   color: white;
   cursor: pointer;
+}
+
+.filters-wrap {
+  position: relative;
+}
+
+.filters-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 260px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filters-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.filters-label {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.filters-label span {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.filters-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.filters-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.filters-check input {
+  accent-color: var(--accent);
+}
+
+.filters-reset {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.filters-reset:hover {
+  border-color: var(--border-strong);
 }
 
 /* ─── Pill Button ────────────────────────────────────────────────────────────── */

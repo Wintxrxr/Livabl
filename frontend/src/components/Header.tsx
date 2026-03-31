@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import type { ScoreCategory } from '../types';
+import { useEffect, useRef, useState } from 'react';
+import type { ScoreCategory, TopbarFilters } from '../types';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
   activeCategory: ScoreCategory;
   onCategoryChange: (cat: ScoreCategory) => void;
+  filters: TopbarFilters;
+  onFiltersChange: React.Dispatch<React.SetStateAction<TopbarFilters>>;
   theme: 'light' | 'dark';
   onThemeToggle: () => void;
 }
@@ -20,15 +22,39 @@ export default function Header({
   onSearch,
   activeCategory,
   onCategoryChange,
+  filters,
+  onFiltersChange,
   theme,
   onThemeToggle,
 }: HeaderProps) {
   const [query, setQuery] = useState('Connaught Place, New Delhi');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(query);
   };
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      const target = event.target as Node;
+      if (!filtersRef.current?.contains(target)) {
+        setFiltersOpen(false);
+      }
+    }
+
+    if (filtersOpen) {
+      window.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => window.removeEventListener('mousedown', handleOutsideClick);
+  }, [filtersOpen]);
+
+  const activeFilterCount =
+    Number(filters.minScore > 0) +
+    Number(!filters.includeExcellent) +
+    Number(!filters.includeAverage) +
+    Number(!filters.includePoor);
 
   return (
     <header className="livabl-header">
@@ -61,6 +87,7 @@ export default function Header({
             <button
               key={cat.key}
               className={`pill-btn ${activeCategory === cat.key ? 'active' : ''}`}
+              type="button"
               onClick={() => onCategoryChange(cat.key)}
             >
               {cat.label}
@@ -97,12 +124,93 @@ export default function Header({
             </svg>
           )}
         </button>
-        <button className="pill-btn">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M1 3h10M3 6h6M5 9h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
-          Filters
-        </button>
+        <div className="filters-wrap" ref={filtersRef}>
+          <button
+            className={`pill-btn ${filtersOpen ? 'active' : ''}`}
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 3h10M3 6h6M5 9h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </button>
+          {filtersOpen && (
+            <div className="filters-popover">
+              <div className="filters-title">Neighborhood Filters</div>
+
+              <label className="filters-label" htmlFor="min-score-range">
+                Minimum Score: <span>{filters.minScore}</span>
+              </label>
+              <input
+                id="min-score-range"
+                className="filters-range"
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={filters.minScore}
+                onChange={(e) =>
+                  onFiltersChange((prev) => ({
+                    ...prev,
+                    minScore: Number(e.target.value),
+                  }))}
+              />
+
+              <div className="filters-label">Show Score Bands</div>
+              <label className="filters-check">
+                <input
+                  type="checkbox"
+                  checked={filters.includeExcellent}
+                  onChange={(e) =>
+                    onFiltersChange((prev) => ({
+                      ...prev,
+                      includeExcellent: e.target.checked,
+                    }))}
+                />
+                Excellent (75-100)
+              </label>
+              <label className="filters-check">
+                <input
+                  type="checkbox"
+                  checked={filters.includeAverage}
+                  onChange={(e) =>
+                    onFiltersChange((prev) => ({
+                      ...prev,
+                      includeAverage: e.target.checked,
+                    }))}
+                />
+                Average (55-74)
+              </label>
+              <label className="filters-check">
+                <input
+                  type="checkbox"
+                  checked={filters.includePoor}
+                  onChange={(e) =>
+                    onFiltersChange((prev) => ({
+                      ...prev,
+                      includePoor: e.target.checked,
+                    }))}
+                />
+                Poor (0-54)
+              </label>
+
+              <button
+                className="filters-reset"
+                type="button"
+                onClick={() =>
+                  onFiltersChange({
+                    minScore: 0,
+                    includeExcellent: true,
+                    includeAverage: true,
+                    includePoor: true,
+                  })}
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+        </div>
         <div className="avatar">R</div>
       </div>
     </header>

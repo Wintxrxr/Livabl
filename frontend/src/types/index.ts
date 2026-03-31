@@ -30,6 +30,13 @@ export type ScoreCategory = 'all' | 'hospital_score' | 'school_score' | 'polluti
 export type MapLayer = 'livability' | 'hospital_score' | 'school_score' | 'pollution_score';
 export type ScoreGrade = 'excellent' | 'average' | 'poor';
 
+export interface TopbarFilters {
+  minScore: number;
+  includeExcellent: boolean;
+  includeAverage: boolean;
+  includePoor: boolean;
+}
+
 export interface NeighborhoodsResponse {
   neighborhoods: Neighborhood[];
   total: number;

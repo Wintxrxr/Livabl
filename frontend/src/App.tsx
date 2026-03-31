@@ -1,11 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import type { Neighborhood, ScoreCategory } from "./types";
-import { getNeighborhoods, searchNeighborhoods } from "./api/neighborhoods";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Neighborhood, ScoreCategory, TopbarFilters } from "./types";
+import { getNeighborhoods } from "./api/neighborhoods";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import LiveMap from "./components/LiveMap";
 
 type ThemeMode = "light" | "dark";
+
+const DEFAULT_FILTERS: TopbarFilters = {
+  minScore: 0,
+  includeExcellent: true,
+  includeAverage: true,
+  includePoor: true,
+};
 
 function getInitialTheme(): ThemeMode {
   if (typeof window === "undefined") return "light";
@@ -19,9 +26,10 @@ function getInitialTheme(): ThemeMode {
 }
 
 export default function App() {
-  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [allNeighborhoods, setAllNeighborhoods] = useState<Neighborhood[]>([]);
   const [selected, setSelected] = useState<Neighborhood | null>(null);
   const [activeCategory, setActiveCategory] = useState<ScoreCategory>("all");
+  const [filters, setFilters] = useState<TopbarFilters>(DEFAULT_FILTERS);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [themeSwitching, setThemeSwitching] = useState(false);
@@ -29,7 +37,7 @@ export default function App() {
 
   useEffect(() => {
     getNeighborhoods().then(({ neighborhoods }) => {
-      setNeighborhoods(neighborhoods);
+      setAllNeighborhoods(neighborhoods);
       if (neighborhoods.length > 0) {
         const top = [...neighborhoods].sort((a, b) => b.score - a.score)[0];
         setSelected(top);
@@ -37,6 +45,27 @@ export default function App() {
       setLoading(false);
     });
   }, []);
+
+  const neighborhoods = useMemo(() => {
+    return allNeighborhoods
+      .filter((n) => {
+        if (n.score < filters.minScore) return false;
+        if (n.score >= 75) return filters.includeExcellent;
+        if (n.score >= 55) return filters.includeAverage;
+        return filters.includePoor;
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [allNeighborhoods, filters]);
+
+  useEffect(() => {
+    if (neighborhoods.length === 0) {
+      setSelected(null);
+      return;
+    }
+    if (!selected || !neighborhoods.some((n) => n.id === selected.id)) {
+      setSelected(neighborhoods[0]);
+    }
+  }, [neighborhoods, selected]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -51,9 +80,13 @@ export default function App() {
     };
   }, []);
 
-  async function handleSearch(query: string) {
-    const { results } = await searchNeighborhoods(query);
-    if (results.length > 0) setSelected(results[0]);
+  function handleSearch(query: string) {
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const found =
+      neighborhoods.find((n) => n.name.toLowerCase().includes(q)) ??
+      allNeighborhoods.find((n) => n.name.toLowerCase().includes(q));
+    if (found) setSelected(found);
   }
 
   function handleThemeToggle() {
@@ -94,6 +127,8 @@ export default function App() {
         onSearch={handleSearch}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
+        filters={filters}
+        onFiltersChange={setFilters}
         theme={theme}
         onThemeToggle={handleThemeToggle}
       />
