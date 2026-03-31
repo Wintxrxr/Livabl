@@ -35,9 +35,9 @@ Livabl unifies multiple public datasets into a **standardized locality score (0�
 The platform transforms complex urban data into simple, actionable insights through:
 
 - Interactive ward-level map with color-coded livability zones
-- Per-ward score breakdown across 6 key metrics
+- Per-ward score breakdown for key metrics (hospital, school, pollution)
 - Ranked neighborhood list with real-time filtering
-- Side-by-side locality comparison *(coming soon)*
+- Side-by-side locality comparison in the sidebar
 
 ---
 
@@ -51,18 +51,15 @@ The platform transforms complex urban data into simple, actionable insights thro
 
 ## Quality Score Metrics
 
-Livabl computes a **0–100 livability score** using six weighted pillars:
+Livabl computes a **0–100 livability score** with metric breakdowns currently exposed as:
 
 | Metric | Description | Data Source |
 |--------|-------------|-------------|
-| 🏥 Healthcare Access | Hospitals within a 3 km radius | OpenStreetMap |
-| 🏫 Education Access | Schools within a 3 km radius | OpenStreetMap |
-| 🚇 Connectivity | Metro accessibility index | Public transit data |
-| 🌿 Environment | Average AQI levels | Open AQI datasets |
-| 🏛️ Civic Responsiveness | Active complaint data | Municipal records |
-| 💬 Community Sentiment | User-submitted ratings | Platform data |
+| 🏥 Hospital Score | Healthcare accessibility proxy | OpenStreetMap + processed ward data |
+| 🏫 School Score | Education accessibility proxy | OpenStreetMap + processed ward data |
+| 🌫️ Pollution Score | Environmental pressure proxy | AQI/processed ward data |
 
-Each metric is normalized to a common 0–100 scale before weighted aggregation into a final Quality Score.
+The frontend shows the combined livability score and these per-ward metric components.
 
 ---
 
@@ -164,24 +161,24 @@ git clone https://github.com/WalkingDead1407/Livabl.git
 cd Livabl
 ```
 
-#### Backend
+#### Backend (FastAPI + uv)
 
 ```bash
 cd backend
 
-# Create and activate virtual environment
-uv venv
-source .venv/bin/activate   # Linux / macOS
-# .venv\Scripts\activate    # Windows
-
-# Install dependencies
-uv pip install -r requirements.txt
+# Install/lock dependencies from pyproject.toml + uv.lock
+uv sync --dev
 
 # Run the API server
-python app.py
+uv run python run.py
 ```
 
-The API will be available at `http://localhost:8000`.
+The API will be available at `http://127.0.0.1:8000`.
+Quick health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
 
 #### Frontend
 
@@ -198,10 +195,29 @@ Open `http://localhost:5173` in your browser.
 Create a `.env` file inside the `frontend/` folder:
 
 ```
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=http://127.0.0.1:8000
 ```
 
-The frontend will automatically switch from local GeoJSON to the live API.
+The frontend will use the live backend when available.
+If backend is down/unreachable, it automatically falls back to local GeoJSON data.
+
+### Common Troubleshooting
+
+If the UI is stuck on `Loading neighborhoods…`:
+
+1. Confirm backend is running:
+   ```bash
+   cd backend
+   uv run python run.py
+   ```
+2. Check API health:
+   ```bash
+   curl http://127.0.0.1:8000/health
+   ```
+3. Ensure frontend `.env` points to the same backend URL:
+   ```text
+   VITE_API_URL=http://127.0.0.1:8000
+   ```
 
 ---
 
