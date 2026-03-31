@@ -1,52 +1,39 @@
-"""
-Ward endpoints returning enhanced scores with breakdowns.
-"""
+from fastapi import APIRouter, HTTPException
+from typing import List
 
-from flask import Blueprint, jsonify
-from scoring.engine import ScoringEngine
+from app.data.wards import get_all_wards, get_ward_by_id
+from app.scoring.engine import compute_score
+from app.schemas.ward import WardResponse, WardDetailResponse
 
-wards_bp = Blueprint('wards', __name__, url_prefix='/api/wards')
-
-engine = ScoringEngine()
+router = APIRouter(tags=["Wards"])
 
 
-@wards_bp.route('/<ward_id>/score', methods=['GET'])
-def get_ward_score(ward_id):
-    try:
-        ward = fetch_ward_from_db(ward_id)
-        if not ward:
-            return jsonify({'error': 'Ward not found'}), 404
-        score_result = engine.calculate_ward_score(
-            ward_name=ward['name'],
-            healthcare_score=ward.get('hospital_score', 50),
-            education_score=ward.get('school_score', 50),
-            connectivity_score=ward.get('metro_score', 50),
-            aqi_value=ward.get('aqi', None),
-            civic_score=ward.get('civic_score', 50),
-            sentiment_score=ward.get('sentiment_score', 50)
-        )
- 
-        return jsonify(score_result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@router.get("/wards", response_model=List[WardResponse])
+def list_wards():
+    data = get_all_wards()
+
+    return [
+        {
+            "id": w["id"],
+            "name": w["name"],
+            "city": w["city"],
+            "score": w["score"],
+        }
+        for w in data
+    ]
 
 
-@wards_bp.route('/compare', methods=['POST'])
-def compare_wards():
-    data = request.get_json()
-    ward_ids = data.get('ward_ids', [])
-    results = []
-    for ward_id in ward_ids:
-        ward = fetch_ward_from_db(ward_id)
-        if ward:
-            score_result = engine.calculate_ward_score(
-                ward_name=ward['name'],
-                healthcare_score=ward.get('hospital_score', 50),
-                education_score=ward.get('school_score', 50),
-                connectivity_score=ward.get('metro_score', 50),
-                aqi_value=ward.get('aqi', None),
-                civic_score=ward.get('civic_score', 50),
-                sentiment_score=ward.get('sentiment_score', 50)
-            )
-            results.append(score_result)
-    return jsonify({'wards': results})
+@router.get("/wards/{ward_id}", response_model=WardDetailResponse)
+def get_ward(ward_id: int):
+    w = get_ward_by_id(ward_id)
+
+    if not w:
+        raise HTTPException(status_code=404, detail="Ward not found")
+    score_result = compute_score(w)
+    return {
+        "id": w["id"],
+        "name": w["name"],
+        "city": w["city"],
+        "score": score_result["score"],
+        "metrics": score_result["metrics"],
+    }
